@@ -1,10 +1,31 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from "react";
+import reactLogo from "./assets/react.svg";
+import viteLogo from "/vite.svg";
+import "./App.css";
+import { io } from "socket.io-client";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [count, setCount] = useState(0);
+
+  const socket = io("http://localhost:3001");
+
+  // join game
+  socket.emit("join_game", {
+    gameId: "game123",
+    userId: "rahul",
+  });
+
+  // make move
+  socket.emit("make_move", {
+    gameId: "game123",
+    move: { from: "e2", to: "e4" },
+    userId: "rahul",
+  });
+
+  // listen
+  socket.on("opponent_move", (data) => {
+    console.log("Opponent moved:", data);
+  });
 
   return (
     <>
@@ -29,7 +50,7 @@ function App() {
         Click on the Vite and React logos to learn more
       </p>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
