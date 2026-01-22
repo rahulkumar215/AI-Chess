@@ -1,31 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
-import { io } from "socket.io-client";
 
 function App() {
   const [count, setCount] = useState(0);
+  const ws = useRef(null);
 
-  const socket = io("http://localhost:3001");
+  useEffect(() => {
+    // connect to websocket
+    ws.current = new WebSocket("ws://localhost:3001");
 
-  // join game
-  socket.emit("join_game", {
-    gameId: "game123",
-    userId: "rahul",
-  });
+    ws.current.onopen = () => {
+      console.log("✅ Custom WS Connected");
 
-  // make move
-  socket.emit("make_move", {
-    gameId: "game123",
-    move: { from: "e2", to: "e4" },
-    userId: "rahul",
-  });
+      // join game immediately
+      sendMessage({
+        type: "join_game",
+        gameId: "game123",
+        userId: "rahul",
+      });
+    };
 
-  // listen
-  socket.on("opponent_move", (data) => {
-    console.log("Opponent moved:", data);
-  });
+    ws.current.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📩 Message from server:", data);
+
+        if (data.type === "opponent_move") {
+          console.log("Opponent moved:", data.payload);
+        }
+      } catch (e) {
+        console.error("Error parsing message", e);
+      }
+    };
+
+    ws.current.onclose = () => {
+      console.log("❌ WS Disconnected");
+    };
+
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, []);
+
+  const sendMessage = (data) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify(data));
+    } else {
+      console.warn("WS not open, cannot send:", data);
+    }
+  };
+
+  const handleMakeMove = () => {
+    // make move
+    sendMessage({
+      type: "make_move",
+      gameId: "game123",
+      move: { from: "e2", to: "e4" },
+      userId: "rahul",
+    });
+  };
 
   return (
     <>
@@ -39,8 +76,13 @@ function App() {
       </div>
       <h1>Vite + React</h1>
       <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+        <button
+          onClick={() => {
+            setCount((count) => count + 1);
+            handleMakeMove();
+          }}
+        >
+          count is {count} (and make move)
         </button>
         <p>
           Edit <code>src/App.jsx</code> and save to test HMR
